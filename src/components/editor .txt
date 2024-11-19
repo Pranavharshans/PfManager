@@ -1,0 +1,438 @@
+
+editor working with buttons on top no view only function
+----------------------------------
+'use client'
+
+import React, { useState, useRef, useCallback } from 'react'
+import { ArrowLeft, Plus, Download, Trash } from 'lucide-react'
+import { utils, writeFile } from 'xlsx'
+import type { Statement, Entry, StatementSummary } from '../types'
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts'
+
+interface Props {
+  statement?: Statement
+  onSave: (statement: Statement) => void
+  onBack: () => void
+}
+
+export default function StatementEditor({ statement, onSave, onBack }: Props) {
+  // Convert string dates to Date objects when initializing from statement
+  const initialEntries = statement?.entries?.map(entry => ({
+    ...entry,
+    date: entry.date ? new Date(entry.date) : new Date()
+  })) || []
+
+  const [company, setCompany] = useState(statement?.company || '')
+  const [place, setPlace] = useState(statement?.place || '')
+  const [entries, setEntries] = useState<Entry[]>(initialEntries)
+
+  const companyInputRef = useRef<HTMLInputElement>(null)
+  const placeInputRef = useRef<HTMLInputElement>(null)
+
+  const handleHeaderKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, nextRef: React.RefObject<HTMLInputElement>) => {
+    if (e.key === 'Enter' && nextRef.current) {
+      e.preventDefault()
+      nextRef.current.focus()
+    }
+  }
+
+  const handleAddEntry = () => {
+    const newEntry: Entry = {
+      id: crypto.randomUUID(),
+      date: new Date(),
+      invoice: '',
+      description: '',
+      debit: 0,
+      credit: 0,
+    }
+    setEntries([...entries, newEntry])
+  }
+
+  const handleEntryChange = (id: string, field: keyof Entry, value: string | number | Date) => {
+    setEntries(entries.map((entry) => {
+      if (entry.id === id) {
+        if (field === 'date') {
+          // Convert string date to Date object, use current date if invalid
+          const dateValue = value instanceof Date ? value : new Date(value)
+          return { ...entry, [field]: isNaN(dateValue.getTime()) ? new Date() : dateValue }
+        }
+        return { ...entry, [field]: value }
+      }
+      return entry
+    }))
+  }
+
+  const formatDateForInput = (date: Date): string => {
+    if (!(date instanceof Date) || isNaN(date.getTime())) {
+      return ''
+    }
+    return date.toISOString().split('T')[0]
+  }
+
+  const handleEntryKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>, entryId: string, currentField: keyof Entry) => {
+      const fields: (keyof Entry)[] = ['date', 'invoice', 'description', 'debit', 'credit']
+      const currentIndex = fields.indexOf(currentField)
+      const currentRowIndex = entries.findIndex((entry) => entry.id === entryId)
+
+      const focusInput = (rowIndex: number, fieldIndex: number) => {
+        if (rowIndex >= 0 && rowIndex < entries.length && fieldIndex >= 0 && fieldIndex < fields.length) {
+          const targetId = entries[rowIndex].id
+          const targetField = fields[fieldIndex]
+          const targetInput = document.querySelector(
+            `input[data-entry-id="${targetId}"][data-field="${targetField}"]`
+          ) as HTMLElement
+          targetInput?.focus()
+        }
+      }
+
+      switch (e.key) {
+        case 'Enter':
+          e.preventDefault()
+          if (currentField === 'credit') {
+            handleAddEntry()
+            setTimeout(() => focusInput(currentRowIndex + 1, 0), 0)
+          } else {
+            focusInput(currentRowIndex, currentIndex + 1)
+          }
+          break
+        case 'ArrowDown':
+          e.preventDefault()
+          focusInput(currentRowIndex + 1, currentIndex)
+          break
+        case 'ArrowUp':
+          e.preventDefault()
+          focusInput(currentRowIndex - 1, currentIndex)
+          break
+        case 'ArrowLeft':
+          if (e.currentTarget.selectionStart === 0) {
+            e.preventDefault()
+            focusInput(currentRowIndex, currentIndex - 1)
+          }
+          break
+        case 'ArrowRight':
+          if (e.currentTarget.selectionStart === e.currentTarget.value.length) {
+            e.preventDefault()
+            focusInput(currentRowIndex, currentIndex + 1)
+          }
+          break
+      }
+    },
+    [entries, handleAddEntry]
+  )
+
+  const handleRemoveEntry = (id: string) => {
+    setEntries(entries.filter((entry) => entry.id !== id))
+  }
+
+  const calculateSummary = (): StatementSummary => {
+    const totalDebit = entries.reduce((sum, entry) => sum + (entry.debit || 0), 0)
+    const totalCredit = entries.reduce((sum, entry) => sum + (entry.credit || 0), 0)
+    const numberOfCredits = entries.filter((entry) => entry.credit > 0).length
+    const numberOfDebits = entries.filter((entry) => entry.debit > 0).length
+
+    return {
+      totalDebit,
+      totalCredit,
+      difference: totalCredit - totalDebit,
+      numberOfCredits,
+      numberOfDebits,
+    }
+  }
+
+  const handleSave = () => {
+    const newStatement: Statement = {
+      id: statement?.id || crypto.randomUUID(),
+      company,
+      place,
+      date: new Date().toLocaleDateString(),
+      entries: entries.map(entry => ({
+        ...entry,
+        date: entry.date instanceof Date ? entry.date : new Date(entry.date)
+      })),
+    }
+    onSave(newStatement)
+  }
+
+  const exportToExcel = () => {
+    const wb = utils.book_new()
+    const currentDate = new Date()
+      .toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: '2-digit',
+        year: '2-digit',
+      })
+      .replace(/\//g, '/')
+
+    const ws = utils.aoa_to_sheet([
+      ['PRANAV FASHIONS'],
+      ['7029 KASIPALAYAM ROAD', '', '', 'PHONE: 9952352371 ,7907588876'],
+      ['THALAYARI THOTTA', '', '', 'E-mail: suresh4ub@gmail.com'],
+      ['SIDCO,MUDHALIPALAYAM'],
+      ['TIRUPUR,641606'],
+      [''],
+      [''],
+      [currentDate, '', '', company],
+      ['', '', '', place],
+      [''],
+      ['DATE', 'INVOICE', 'DESC', 'DEBIT', 'CREDIT'],
+      ...entries.map((entry) => [
+        entry.date instanceof Date ? entry.date.toLocaleDateString() : new Date(entry.date).toLocaleDateString(),
+        entry.invoice,
+        entry.description,
+        entry.debit || '',
+        entry.credit || ''
+      ]),
+      [''],
+      [`CLOSING BALANCE AS ON ${currentDate} =`, '', '', calculateSummary().totalDebit - calculateSummary().totalCredit],
+    ])
+
+    ws['!cols'] = [
+      { width: 15 },
+      { width: 15 },
+      { width: 30 },
+      { width: 15 },
+      { width: 15 },
+    ]
+
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 2 } },
+      { s: { r: 3, c: 0 }, e: { r: 3, c: 4 } },
+      { s: { r: 4, c: 0 }, e: { r: 4, c: 4 } },
+      { s: { r: 7, c: 3 }, e: { r: 7, c: 4 } },
+      { s: { r: 8, c: 3 }, e: { r: 8, c: 4 } },
+    ]
+
+    utils.book_append_sheet(wb, ws, 'Statement')
+    writeFile(wb, `${company || 'Company'}-statement-${currentDate}.xlsx`)
+  }
+
+  const summary = calculateSummary()
+
+  const pieChartData = [
+    { name: 'Debit', value: summary.totalDebit },
+    { name: 'Credit', value: summary.totalCredit },
+  ]
+
+  const COLORS = ['#EF4444', '#10B981']
+
+  return (
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors"
+        >
+          <ArrowLeft size={20} />
+          Back to Statement Manager
+        </button>
+        <div className="flex gap-4">
+          <button
+            onClick={exportToExcel}
+            className="flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <Download size={20} />
+            Export
+          </button>
+          <button
+            onClick={handleSave}
+            className="flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 mb-6">
+        <div className="grid sm:grid-cols-[120px_1fr] items-center gap-2">
+          <label htmlFor="company" className="text-gray-400 font-medium">
+            Company:
+          </label>
+          <input
+            id="company"
+            ref={companyInputRef}
+            type="text"
+            placeholder="Company Name"
+            value={company}
+            onChange={(e) => setCompany(e.target.value)}
+            onKeyDown={(e) => handleHeaderKeyDown(e, placeInputRef)}
+            className="bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-blue-500 w-full"
+          />
+        </div>
+        <div className="grid sm:grid-cols-[120px_1fr] items-center gap-2">
+          <label htmlFor="place" className="text-gray-400 font-medium">
+            Place:
+          </label>
+          <input
+            id="place"
+            ref={placeInputRef}
+            type="text"
+            placeholder="Place"
+            value={place}
+            onChange={(e) => setPlace(e.target.value)}
+            className="bg-gray-800 text-white px-4 py-2 rounded-lg border border-gray-700 focus:outline-none focus:border-blue-500 w-full"
+          />
+        </div>
+      </div>
+
+      <div className="grid sm:grid-cols-2 gap-6 mb-6">
+        <div className="bg-gray-800 rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-4">Summary</h3>
+          <div className="grid gap-4">
+            <div>
+              <div className="text-gray-400 mb-1">Total Debit</div>
+              <div className="text-xl font-semibold">{summary.totalDebit.toFixed(2)}</div>
+              <div className="text-sm text-gray-400">Number of Debits: {summary.numberOfDebits}</div>
+            </div>
+            <div>
+              <div className="text-gray-400 mb-1">Total Credit</div>
+              <div className="text-xl font-semibold">{summary.totalCredit.toFixed(2)}</div>
+              <div className="text-sm text-gray-400">Number of Credits: {summary.numberOfCredits}</div>
+            </div>
+            <div>
+              <div className="text-gray-400 mb-1">Difference (Credit - Debit)</div>
+              <div className="text-xl font-semibold">{summary.difference.toFixed(2)}</div>
+            </div>
+          </div>
+        </div>
+        <div className="bg-gray-800 rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-4">Credit vs Debit</h3>
+          <div className="h-[200px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <defs>
+                  <filter id="shadow">
+                    <feDropShadow dx="0" dy="0" stdDeviation="3" floodOpacity="0.5" />
+                  </filter>
+                </defs>
+                <Pie
+                  data={pieChartData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  outerRadius={80}
+                  innerRadius={40}
+                  fill="#8884d8"
+                  dataKey="value"
+                  label={({ name, percent, cx, cy, midAngle, innerRadius, outerRadius }) => {
+                    const RADIAN = Math.PI / 180;
+                    const radius = 25 + innerRadius + (outerRadius - innerRadius);
+                    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+                    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+                    return (
+                      <text
+                        x={x}
+                        y={y}
+                        fill="white"
+                        textAnchor={x > cx ? 'start' : 'end'}
+                        dominantBaseline="central"
+                      >
+                        {`${(percent * 100).toFixed(0)}%`}
+                      </text>
+                    );
+                  }}
+                >
+                  {pieChartData.map((entry, index) => (
+                    <Cell 
+                      key={`cell-${index}`} 
+                      fill={COLORS[index % COLORS.length]}
+                      filter="url(#shadow)"
+                    />
+                  ))}
+                </Pie>
+                <Legend 
+                  verticalAlign="bottom" 
+                  height={36}
+                  formatter={(value, entry, index) => (
+                    <span style={{ color: COLORS[index % COLORS.length] }}>{value}</span>
+                  )}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-gray-800 rounded-lg p-4 mb-6 overflow-x-auto">
+        <h3 className="text-lg font-semibold mb-4">Entries</h3>
+        <div className="min-w-[800px]">
+          <div className="grid grid-cols-[1fr_1fr_2fr_1fr_1fr_auto] gap-4 mb-4">
+            <div className="font-medium text-gray-300 px-3 py-2">Date</div>
+            <div className="font-medium text-gray-300 px-3 py-2">Invoice</div>
+            <div className="font-medium text-gray-300 px-3 py-2">Description</div>
+            <div className="font-medium text-gray-300 px-3 py-2">Debit</div>
+            <div className="font-medium text-gray-300 px-3 py-2">Credit</div>
+            <div className="font-medium text-gray-300 px-3 py-2">Action</div>
+          </div>
+
+          {entries.map((entry, index) => (
+            <div key={entry.id} className="grid grid-cols-[1fr_1fr_2fr_1fr_1fr_auto] gap-4 mb-2">
+              <input
+                type="date"
+                value={formatDateForInput(entry.date)}
+                onChange={(e) => handleEntryChange(entry.id, 'date', e.target.value)}
+                onKeyDown={(e) => handleEntryKeyDown(e, entry.id, 'date')}
+                data-entry-id={entry.id}
+                data-field="date"
+                className="bg-gray-700 text-white px-3 py-2 rounded border border-gray-600 focus:outline-none focus:border-blue-500 w-full"
+              />
+              <input
+                type="text"
+                value={entry.invoice}
+                onChange={(e) => handleEntryChange(entry.id, 'invoice', e.target.value)}
+                onKeyDown={(e) => handleEntryKeyDown(e, entry.id, 'invoice')}
+                data-entry-id={entry.id}
+                data-field="invoice"
+                className="bg-gray-700 text-white px-3 py-2 rounded border border-gray-600 focus:outline-none focus:border-blue-500 w-full"
+              />
+              <input
+                type="text"
+                value={entry.description}
+                onChange={(e) => handleEntryChange(entry.id, 'description', e.target.value)}
+                onKeyDown={(e) => handleEntryKeyDown(e, entry.id, 'description')}
+                data-entry-id={entry.id}
+                data-field="description"
+                className="bg-gray-700 text-white px-3 py-2 rounded border border-gray-600 focus:outline-none focus:border-blue-500 w-full"
+              />
+              <input
+                type="number"
+                value={entry.debit || ''}
+                onChange={(e) => handleEntryChange(entry.id, 'debit', parseFloat(e.target.value) || 0)}
+                onKeyDown={(e) => handleEntryKeyDown(e, entry.id, 'debit')}
+                data-entry-id={entry.id}
+                data-field="debit"
+                className="bg-gray-700 text-white px-3 py-2 rounded border border-gray-600 focus:outline-none focus:border-blue-500 w-full"
+              />
+              <input
+                type="number"
+                value={entry.credit || ''}
+                onChange={(e) => handleEntryChange(entry.id, 'credit', parseFloat(e.target.value) || 0)}
+                onKeyDown={(e) => handleEntryKeyDown(e, entry.id, 'credit')}
+                data-entry-id={entry.id}
+                data-field="credit"
+                className="bg-gray-700 text-white px-3 py-2 rounded border border-gray-600 focus:outline-none focus:border-blue-500 w-full"
+              />
+              <button
+                onClick={() => handleRemoveEntry(entry.id)}
+                className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded transition-colors"
+              >
+                <Trash size={20} />
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={handleAddEntry}
+          className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors mt-4"
+        >
+          <Plus size={20} />
+          Add Entry
+        </button>
+      </div>
+    </div>
+  )
+}
