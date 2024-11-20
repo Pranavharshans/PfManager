@@ -75,7 +75,7 @@ export default function StatementManager() {
         const q = query(
           statementsRef,
           where('userId', '==', user.uid),
-          orderBy('date', 'desc')
+          orderBy('company', 'asc')
         )
         
         const querySnapshot = await getDocs(q)
