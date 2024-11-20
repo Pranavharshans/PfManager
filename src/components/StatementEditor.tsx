@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef, useCallback } from 'react'
+import React, { useState, useRef, useCallback, useMemo } from 'react'
 import { ArrowLeft, Plus, Download, Trash, Edit, Save } from 'lucide-react'
 import { utils, writeFile } from 'xlsx'
 import type { Statement, Entry, StatementSummary } from '../types'
@@ -33,6 +33,11 @@ export default function StatementEditor({ statement, onSave, onBack, isNewStatem
   const companyInputRef = useRef<HTMLInputElement>(null)
   const placeInputRef = useRef<HTMLInputElement>(null)
 
+  // Sort entries by date
+  const sortedEntries = useMemo(() => {
+    return [...entries].sort((a, b) => a.date.getTime() - b.date.getTime())
+  }, [entries])
+
   const handleHeaderKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, nextRef: React.RefObject<HTMLInputElement>) => {
     if (e.key === 'Enter' && nextRef.current) {
       e.preventDefault()
@@ -49,7 +54,7 @@ export default function StatementEditor({ statement, onSave, onBack, isNewStatem
       debit: 0,
       credit: 0,
     }
-    setEntries([...entries, newEntry])
+    setEntries(prevEntries => [...prevEntries, newEntry])
   }
 
   const handleEntryChange = (id: string, field: keyof Entry, value: string | number | Date) => {
@@ -416,7 +421,7 @@ export default function StatementEditor({ statement, onSave, onBack, isNewStatem
             <div className="font-medium text-gray-300 px-3 py-2">Payment</div>
             {isEditMode && <div className="font-medium text-gray-300 px-1 py-2">Action</div>}
           </div>
-          {entries.map((entry) => (
+          {sortedEntries.map((entry) => (
             <div key={entry.id} className="grid grid-cols-[1fr_1fr_2fr_1fr_1fr_auto] gap-4 mb-2">
               {isEditMode ? (
                 <>
