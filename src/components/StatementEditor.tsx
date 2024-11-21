@@ -246,7 +246,8 @@ export default function StatementEditor({ statement, onSave, onBack, isNewStatem
         entry.credit || ''
       ]),
       [''],
-      [`CLOSING BALANCE AS ON ${currentDate} =`, '', '', calculateSummary(filteredEntries).totalDebit - calculateSummary(filteredEntries).totalCredit],
+      [`CLOSING BALANCE AS ON ${currentDate} =`, '', '', calculateSummary(filteredEntries).totalCredit - calculateSummary(filteredEntries).totalDebit]
+,
     ])
 
     ws['!cols'] = [
