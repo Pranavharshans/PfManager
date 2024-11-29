@@ -252,7 +252,7 @@ export default function StatementEditor({ statement, onSave, onBack, isNewStatem
     ws['!cols'] = [
       { width: 15 },
       { width: 15 },
-      { width: 20 }, // Reduced width for the description column
+      { width: 8 },  // Reduced width for the description column (60% reduction from 20)
       { width: 15 },
       { width: 15 },
     ]
