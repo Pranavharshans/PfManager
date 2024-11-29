@@ -246,14 +246,13 @@ export default function StatementEditor({ statement, onSave, onBack, isNewStatem
         entry.credit || ''
       ]),
       [''],
-      [`CLOSING BALANCE AS ON ${currentDate} =`, '', '', calculateSummary(filteredEntries).totalCredit - calculateSummary(filteredEntries).totalDebit]
-,
+      [`CLOSING BALANCE AS ON ${currentDate} =`, '', '', '', calculateSummary(filteredEntries).totalCredit - calculateSummary(filteredEntries).totalDebit],
     ])
 
     ws['!cols'] = [
       { width: 15 },
       { width: 15 },
-      { width: 30 },
+      { width: 20 }, // Reduced width for the description column
       { width: 15 },
       { width: 15 },
     ]
@@ -267,6 +266,7 @@ export default function StatementEditor({ statement, onSave, onBack, isNewStatem
       { s: { r: 6, c: 0 }, e: { r: 6, c: 4 } },
       { s: { r: 8, c: 3 }, e: { r: 8, c: 4 } },
       { s: { r: 9, c: 3 }, e: { r: 9, c: 4 } },
+      { s: { r: ws.length - 1, c: 3 }, e: { r: ws.length - 1, c: 4 } }, // Merge the last two cells of the closing balance row
     ]
 
     utils.book_append_sheet(wb, ws, 'Statement')
@@ -353,12 +353,12 @@ export default function StatementEditor({ statement, onSave, onBack, isNewStatem
               <div className="text-sm text-gray-400">Number of Payments: {summary.numberOfDebits}</div>
             </div>
             <div>
-              <div className="text-gray-400 mb-1">Total Bill</div>
+              Total Bill</div>
               <div className="text-xl font-semibold">{summary.totalCredit.toFixed(2)}</div>
               <div className="text-sm text-gray-400">Number of Bills: {summary.numberOfCredits}</div>
             </div>
             <div>
-              <div className="text-gray-400 mb-1">Difference (Bill - Payment)</div>
+              Difference (Bill - Payment)</div>
               <div className="text-xl font-semibold">{summary.difference.toFixed(2)}</div>
             </div>
           </div>
@@ -586,3 +586,4 @@ function ExportModal({ isOpen, onClose, onExport }) {
     </Dialog>
   )
 }
+
