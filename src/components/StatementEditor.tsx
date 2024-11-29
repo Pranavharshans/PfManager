@@ -353,12 +353,12 @@ export default function StatementEditor({ statement, onSave, onBack, isNewStatem
               <div className="text-sm text-gray-400">Number of Payments: {summary.numberOfDebits}</div>
             </div>
             <div>
-              Total Bill</div>
+              <div className="text-gray-400 mb-1">Total Bill</div>
               <div className="text-xl font-semibold">{summary.totalCredit.toFixed(2)}</div>
               <div className="text-sm text-gray-400">Number of Bills: {summary.numberOfCredits}</div>
             </div>
             <div>
-              Difference (Bill - Payment)</div>
+              <div className="text-gray-400 mb-1">Difference (Bill - Payment)</div>
               <div className="text-xl font-semibold">{summary.difference.toFixed(2)}</div>
             </div>
           </div>
