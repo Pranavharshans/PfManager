@@ -3,7 +3,6 @@
 import React, { useState, useRef, useCallback, useMemo } from 'react'
 import { ArrowLeft, Plus, Download, Trash, Edit, Save } from 'lucide-react'
 import { utils, writeFile } from 'xlsx'
-import type { Statement, Entry, StatementSummary } from '../types'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -11,11 +10,36 @@ import { Label } from "@/components/ui/label"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Input } from "@/components/ui/input"
 
+interface Entry {
+  id: string;
+  date: Date;
+  invoice: string;
+  description: string;
+  debit: number;
+  credit: number;
+}
+
+interface Statement {
+  id: string;
+  company: string;
+  place: string;
+  date: Date;
+  entries: Entry[];
+}
+
+interface StatementSummary {
+  totalDebit: number;
+  totalCredit: number;
+  difference: number;
+  numberOfCredits: number;
+  numberOfDebits: number;
+}
+
 interface Props {
-  statement?: Statement
-  onSave: (statement: Statement) => void
-  onBack: () => void
-  isNewStatement: boolean
+  statement?: Statement;
+  onSave: (statement: Statement) => void;
+  onBack: () => void;
+  isNewStatement: boolean;
 }
 
 export default function StatementEditor({ statement, onSave, onBack, isNewStatement }: Props) {
@@ -81,7 +105,11 @@ export default function StatementEditor({ statement, onSave, onBack, isNewStatem
     if (!(date instanceof Date) || isNaN(date.getTime())) {
       return 'Invalid Date'
     }
-    return date.toLocaleDateString()
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    })
   }
 
   const handleEntryKeyDown = useCallback(
@@ -209,11 +237,11 @@ export default function StatementEditor({ statement, onSave, onBack, isNewStatem
         break
     }
 
-    exportToExcel(filteredEntries, exportStartDate, exportEndDate)
+    exportToExcel(filteredEntries, exportStartDate!, exportEndDate, company, place)
     setShowExportModal(false)
   }
 
-  const exportToExcel = (filteredEntries: Entry[], startDate: Date, endDate: Date) => {
+  const exportToExcel = (filteredEntries: Entry[], startDate: Date, endDate: Date, company: string, place: string) => {
     const wb = utils.book_new()
     const currentDate = new Date()
       .toLocaleDateString('en-GB', {
@@ -252,7 +280,7 @@ export default function StatementEditor({ statement, onSave, onBack, isNewStatem
     ws['!cols'] = [
       { width: 15 },
       { width: 15 },
-      { width: 8 },  // Reduced width for the description column (60% reduction from 20)
+      { width: 30 },  // Increased width for the description column
       { width: 15 },
       { width: 15 },
     ]
@@ -266,11 +294,12 @@ export default function StatementEditor({ statement, onSave, onBack, isNewStatem
       { s: { r: 6, c: 0 }, e: { r: 6, c: 4 } },
       { s: { r: 8, c: 3 }, e: { r: 8, c: 4 } },
       { s: { r: 9, c: 3 }, e: { r: 9, c: 4 } },
-      { s: { r: ws.length - 1, c: 3 }, e: { r: ws.length - 1, c: 4 } }, // Merge the last two cells of the closing balance row
+      { s: { r: ws['!ref'].split(':')[1].replace(/\D/g, '') - 1, c: 0 }, e: { r: ws['!ref'].split(':')[1].replace(/\D/g, '') - 1, c: 2 } }, // Merge the first three cells of the closing balance row
+      { s: { r: ws['!ref'].split(':')[1].replace(/\D/g, '') - 1, c: 3 }, e: { r: ws['!ref'].split(':')[1].replace(/\D/g, '') - 1, c: 4 } }, // Merge the last two cells of the closing balance row
     ]
 
     utils.book_append_sheet(wb, ws, 'Statement')
-    writeFile(wb, `${company || 'Company'}-statement-${currentDate}.xlsx`)
+    writeFile(wb, `${company || 'Company'}-statement-${currentDate}.xlsx`, { bookType: 'xlsx', bookSST: false, type: 'binary' })
   }
 
   const summary = calculateSummary(entries)
