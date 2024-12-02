@@ -253,6 +253,42 @@ export default function StatementEditor({ statement, onSave, onBack, isNewStatem
 
     const timeFrameString = `${startDate.toLocaleDateString('en-GB')} - ${endDate.toLocaleDateString('en-GB')}`
 
+    // Define default style for cells
+    const defaultStyle = {
+      alignment: {
+        vertical: 'center',
+        horizontal: 'left',
+        wrapText: true
+      },
+      font: {
+        name: 'Calibri',
+        sz: 11
+      }
+    }
+
+    // Define header style
+    const headerStyle = {
+      ...defaultStyle,
+      font: {
+        ...defaultStyle.font,
+        bold: true
+      },
+      alignment: {
+        ...defaultStyle.alignment,
+        horizontal: 'center'
+      }
+    }
+
+    // Define number style
+    const numberStyle = {
+      ...defaultStyle,
+      alignment: {
+        ...defaultStyle.alignment,
+        horizontal: 'right'
+      },
+      numFmt: '#,##0.00'
+    }
+
     const ws = utils.aoa_to_sheet([
       ['PRANAV FASHIONS'],
       ['7029 KASIPALAYAM ROAD', '', '', 'PHONE: 9952352371 ,7907588876'],
@@ -274,32 +310,90 @@ export default function StatementEditor({ statement, onSave, onBack, isNewStatem
         entry.credit || ''
       ]),
       [''],
-      [`CLOSING BALANCE AS ON ${currentDate} =`, '', '', '', calculateSummary(filteredEntries).totalCredit - calculateSummary(filteredEntries).totalDebit],
+      ['CLOSING BALANCE AS ON', currentDate, '', '', calculateSummary(filteredEntries).totalCredit - calculateSummary(filteredEntries).totalDebit]
     ])
 
+    // Set column widths (in characters) - adjusted for A4 paper
     ws['!cols'] = [
-      { width: 15 },
-      { width: 15 },
-      { width: 30 },  // Increased width for the description column
-      { width: 15 },
-      { width: 15 },
+      { width: 15 },  // DATE
+      { width: 15 },  // INVOICE
+      { width: 30 },  // DESC
+      { width: 15 },  // PAYMENT
+      { width: 15 },  // BILL
     ]
 
+    // Apply styles to all cells
+    const range = utils.decode_range(ws['!ref'])
+    for (let R = range.s.r; R <= range.e.r; R++) {
+      for (let C = range.s.c; C <= range.e.c; C++) {
+        const cellRef = utils.encode_cell({ r: R, c: C })
+        if (!ws[cellRef]) continue
+
+        // Apply default style
+        ws[cellRef].s = defaultStyle
+
+        // Apply header style to the header row
+        if (R === 11) {
+          ws[cellRef].s = headerStyle
+        }
+
+        // Apply number style to PAYMENT and BILL columns
+        if (R > 11 && (C === 3 || C === 4)) {
+          ws[cellRef].s = numberStyle
+        }
+      }
+    }
+
+    // Set merge cells
     ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } },
-      { s: { r: 2, c: 0 }, e: { r: 2, c: 2 } },
-      { s: { r: 3, c: 0 }, e: { r: 3, c: 4 } },
-      { s: { r: 4, c: 0 }, e: { r: 4, c: 4 } },
-      { s: { r: 6, c: 0 }, e: { r: 6, c: 4 } },
-      { s: { r: 8, c: 3 }, e: { r: 8, c: 4 } },
-      { s: { r: 9, c: 3 }, e: { r: 9, c: 4 } },
-      { s: { r: ws['!ref'].split(':')[1].replace(/\D/g, '') - 1, c: 0 }, e: { r: ws['!ref'].split(':')[1].replace(/\D/g, '') - 1, c: 2 } }, // Merge the first three cells of the closing balance row
-      { s: { r: ws['!ref'].split(':')[1].replace(/\D/g, '') - 1, c: 3 }, e: { r: ws['!ref'].split(':')[1].replace(/\D/g, '') - 1, c: 4 } }, // Merge the last two cells of the closing balance row
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 4 } },  // PRANAV FASHIONS
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } },  // Address line 1
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 2 } },  // Address line 2
+      { s: { r: 3, c: 0 }, e: { r: 3, c: 4 } },  // Address line 3
+      { s: { r: 4, c: 0 }, e: { r: 4, c: 4 } },  // Address line 4
+      { s: { r: 6, c: 0 }, e: { r: 6, c: 4 } },  // Time Frame
+      { s: { r: 8, c: 3 }, e: { r: 8, c: 4 } },  // Company
+      { s: { r: 9, c: 3 }, e: { r: 9, c: 4 } },  // Place
     ]
+
+    // Apply specific styles to the closing balance row
+    const lastRowIndex = range.e.r
+    const closingBalanceStyle = {
+      ...defaultStyle,
+      font: {
+        ...defaultStyle.font,
+        bold: true
+      },
+      alignment: {
+        ...defaultStyle.alignment,
+        horizontal: 'right'
+      }
+    }
+
+    // Style the closing balance row
+    for (let C = 0; C <= 4; C++) {
+      const cellRef = utils.encode_cell({ r: lastRowIndex, c: C })
+      if (ws[cellRef]) {
+        ws[cellRef].s = closingBalanceStyle
+        if (C === 4) {
+          ws[cellRef].s = {
+            ...closingBalanceStyle,
+            numFmt: '#,##0.00'  // Apply number format to the balance amount
+          }
+        }
+      }
+    }
 
     utils.book_append_sheet(wb, ws, 'Statement')
-    writeFile(wb, `${company || 'Company'}-statement-${currentDate}.xlsx`, { bookType: 'xlsx', bookSST: false, type: 'binary' })
+
+    // Write file with specific options for better cross-platform compatibility
+    writeFile(wb, `${company || 'Company'}-statement-${currentDate}.xlsx`, {
+      bookType: 'xlsx',
+      bookSST: false,
+      type: 'binary',
+      cellStyles: true,
+      compression: true
+    })
   }
 
   const summary = calculateSummary(entries)
