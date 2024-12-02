@@ -317,7 +317,7 @@ export default function StatementEditor({ statement, onSave, onBack, isNewStatem
     ws['!cols'] = [
       { width: 15 },  // DATE
       { width: 15 },  // INVOICE
-      { width: 30 },  // DESC
+      { width: 15 },  // DESC
       { width: 15 },  // PAYMENT
       { width: 15 },  // BILL
     ]
