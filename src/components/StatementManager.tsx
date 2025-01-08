@@ -32,7 +32,7 @@ export default function StatementManager() {
 
   const handlePinSubmit = (enteredPin: string) => {
     // Replace '1234' with your desired PIN
-    if (enteredPin === '1234') {
+    if (enteredPin === '2002') {
       setIsPinVerified(true)
     } else {
       alert('Incorrect PIN. Please try again.')
