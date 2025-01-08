@@ -14,7 +14,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { User } from 'lucide-react'
-import PinEntry from './PinEntry'
 
 const COLORS = ['#10B981', '#EF4444'] // Green for paid, Red for unpaid
 
@@ -28,16 +27,6 @@ export default function StatementManager() {
   const [timeFrame, setTimeFrame] = useState('thisFinancialYear')
   const [showAllTransactions, setShowAllTransactions] = useState(false)
   const [showUserProfile, setShowUserProfile] = useState(false)
-  const [isPinVerified, setIsPinVerified] = useState(false)
-
-  const handlePinSubmit = (enteredPin: string) => {
-    // Replace '1234' with your desired PIN
-    if (enteredPin === '1234') {
-      setIsPinVerified(true)
-    } else {
-      alert('Incorrect PIN. Please try again.')
-    }
-  }
 
   const getStartDate = (timeFrame: string) => {
     const now = new Date()
@@ -246,10 +235,6 @@ export default function StatementManager() {
       console.error('Failed to log out', error)
       setError('Failed to log out. Please try again.')
     }
-  }
-
-  if (!isPinVerified) {
-    return <PinEntry onPinSubmit={handlePinSubmit} />
   }
 
   if (loading) {
@@ -549,7 +534,6 @@ function getTimeOfDay() {
   if (hour < 18) return 'afternoon'
   return 'evening'
 }
-
 
 
 console.log({
