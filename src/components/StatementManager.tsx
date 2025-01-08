@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { User } from 'lucide-react'
-import PinEntry from './components/PinEntry'
+import PinEntry from './PinEntry'
 
 const COLORS = ['#10B981', '#EF4444'] // Green for paid, Red for unpaid
 
